@@ -1,5 +1,6 @@
 ; Applies the article's IRIS steps in one go (idempotent). Use it to skip the portal walkthrough:
 ;   docker exec -i vscode-oauth-iris iris session IRIS -U %SYS < test/configure-iris.script
+;   PowerShell: Get-Content test/configure-iris.script | docker exec -i vscode-oauth-iris iris session IRIS -U %SYS
 zn "%SYS"
 do ##class(Security.Users).UnExpireUserPasswords("*")
 ; Step 2: server description (discovery) for the Keycloak realm

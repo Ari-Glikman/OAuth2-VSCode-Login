@@ -50,6 +50,21 @@ class ArticleMatchesStackTest(unittest.TestCase):
         self.assertEqual(server["oauth2"], {"authority": "http://keycloak:8080/realms/vscode", "clientId": "vscode-iris"})
         self.assertEqual(server["webServer"], {"scheme": "http", "host": "localhost", "port": 52773})
 
+    def test_missing_hosts_entry_symptom_is_vscode_discovery_error(self):
+        # Server Manager fetches the discovery document itself before opening the browser.
+        self.assertIn("OAuth2: Failed to discover endpoints", self.article)
+
+    def test_shortcut_has_powershell_variant(self):
+        # PowerShell has no "<" input redirection.
+        self.assertIn("Get-Content test/configure-iris.script | docker exec -i vscode-oauth-iris", self.article)
+
+    def test_compose_publishes_only_documented_ports(self):
+        ports = set(re.findall(r'-\s*"(\d+):\d+"', read("docker-compose.yml")))
+        self.assertEqual(ports, {"8080", "52773"})
+
+    def test_warns_about_first_portal_login_password_change(self):
+        self.assertRegex(self.article, r"asks you to change the <code>_SYSTEM</code> password")
+
     def test_open_exchange_listing_exists(self):
         self.assertIn("OAuth2 Login from VS Code", read("docs", "open-exchange.md"))
 

@@ -24,7 +24,7 @@ The token's issuer (<code>iss</code>) must be identical for VS Code, which runs 
 <pre class="codeblock-container" idlang="0" lang="Shell" tabsize="4"><code class="language-bash">git clone https://github.com/Ari-Glikman/OAuth2-VSCode-Login
 cd OAuth2-VSCode-Login
 docker compose up -d</code></pre>
-<p>The IRIS Management Portal is at <a href="http://localhost:52773/csp/sys/UtilHome.csp" target="_blank">http://localhost:52773/csp/sys/UtilHome.csp</a> (<code>_SYSTEM</code> / <code>SYS</code>).</p>
+<p>The IRIS Management Portal is at <a href="http://localhost:52773/csp/sys/UtilHome.csp" target="_blank">http://localhost:52773/csp/sys/UtilHome.csp</a> (<code>_SYSTEM</code> / <code>SYS</code>). On a fresh container, the first portal login asks you to change the <code>_SYSTEM</code> password; pick anything you like.</p>
 
 <h3>Step 1: The Authorization Server (Keycloak)</h3>
 <p>Keycloak is already configured by the realm import in <code>keycloak/realm-vscode.json</code>; there's nothing to do here. The admin console is at <a href="http://keycloak:8080/admin/" target="_blank">http://keycloak:8080/admin/</a> (<code>admin</code> / <code>admin</code>), realm <code>vscode</code>. Three settings on the client <code>vscode-iris</code> matter, and they are the ones you need to reproduce in your own identity provider:</p>
@@ -67,7 +67,12 @@ docker compose up -d</code></pre>
 <!-- screenshot: /api/atelier authentication methods -->
 <p>Why only OAuth2? Keep it simple: when other methods are enabled alongside it, one of them can claim the request first. For example, a <code>ZAUTHENTICATE</code> routine whose <code>GetCredentials</code> always supplies credentials makes Delegated win, and the token is never looked at.</p>
 <p><strong>Shortcut:</strong> steps 2 to 4 are also available as a script. It's useful if you just want to see it working:</p>
-<pre class="codeblock-container" idlang="0" lang="Shell" tabsize="4"><code class="language-bash">docker exec -i vscode-oauth-iris iris session IRIS -U %SYS &lt; test/configure-iris.script</code></pre>
+<pre class="codeblock-container" idlang="0" lang="Shell" tabsize="4"><code class="language-bash"># bash / zsh / cmd
+docker exec -i vscode-oauth-iris iris session IRIS -U %SYS &lt; test/configure-iris.script
+
+# PowerShell
+Get-Content test/configure-iris.script | docker exec -i vscode-oauth-iris iris session IRIS -U %SYS</code></pre>
+<p>Give Keycloak a few seconds after <code>docker compose up</code>; if the script reports a connection error on the server description, run it again.</p>
 
 <h3>Step 5: Sign in from VS Code</h3>
 <p>Add the server to your VS Code <code>settings.json</code>. The new part is the <code>oauth2</code> block: the issuer as <code>authority</code>, and the Keycloak client ID.</p>
@@ -103,7 +108,7 @@ docker compose up -d</code></pre>
   <li>A token audience or issuer error: compare the token's <code>aud</code> and <code>iss</code> (paste it into a JWT decoder) with the resource server's Audiences and the server description's issuer. They must match exactly, trailing slash included.</li>
   </ul></li>
 <li><strong>VS Code doesn't prompt you and still gets 401.</strong> It reuses its cached session. Sign out using the Accounts icon (bottom left) &gt; InterSystems Server Credentials, then connect again.</li>
-<li><strong>The browser can't reach the login page.</strong> The <code>127.0.0.1 keycloak</code> hosts entry is missing.</li>
+<li><strong>VS Code says <em>OAuth2: Failed to discover endpoints from http://keycloak:8080/realms/vscode/.well-known/openid-configuration</em>, and no browser opens.</strong> VS Code itself contacts Keycloak (for discovery, and later for the token exchange), so the <code>127.0.0.1 keycloak</code> hosts entry is missing, or Keycloak is still starting.</li>
 </ul>
 <p>The repository also contains <code>test/get_token.py</code>, which performs the same PKCE login as VS Code and calls IRIS with the token. Run <code>python test/get_token.py dev1 123 --call http://localhost:52773/api/atelier/</code> to check the IRIS side without VS Code.</p>
 
