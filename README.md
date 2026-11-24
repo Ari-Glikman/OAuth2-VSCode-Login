@@ -101,9 +101,10 @@ The portal won't run discovery without one, even though this demo's issuer is pl
     }
   }
 }</code></pre>
-<p>In the InterSystems view, expand <em>oauth-demo</em>. VS Code opens your browser at the Keycloak login page; sign in as <code>dev1</code> / <code>123</code>, allow the browser to open VS Code, and the server's namespaces appear.</p>
+<p>In the InterSystems view, expand <em>oauth-demo</em>. VS Code opens your browser at the Keycloak login page; sign in as <code>dev1</code> / <code>123</code>, allow the browser to open VS Code, and the namespaces <code>dev1</code> can use appear under the server.</p>
 <p><img src="images/keycloak-login.png" alt="Keycloak login page opened by VS Code" width="500"></p>
-<!-- screenshot: Server Manager tree showing namespaces -->
+<p><img src="images/vscode-oauth2-login-success.png" alt="Server Manager tree: oauth-demo, Namespaces, USER" width="440"></p>
+<p>Only <code>USER</code> is listed: <code>dev1</code> has just <code>%Developer</code>, the role that came from Keycloak, so IRIS doesn't show namespaces such as <code>%SYS</code> that need more.</p>
 <p>In the Management Portal, under <em>Security &gt; Users</em>, you will now find the user <code>dev1</code> with the role <code>%Developer</code>. IRIS created it from the token's claims on the first request; its type is <em>OAuth2 user</em>.</p>
 <p><img src="images/iris-users.png" alt="IRIS users list showing dev1 as an OAuth2 user" width="620"></p>
 
