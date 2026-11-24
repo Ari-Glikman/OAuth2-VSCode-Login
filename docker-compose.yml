@@ -15,6 +15,20 @@ services:
     image: containers.intersystems.com/intersystems/iris-community:latest-cd
     container_name: vscode-oauth-iris
     init: true
+    # Applied at startup: keep the default SYS passwords without a change prompt (demo only).
+    environment:
+      ISC_CPF_MERGE_FILE: /merge.cpf
+    configs:
+      - source: iris-merge
+        target: /merge.cpf
     ports:
       - "52773:52773"
     depends_on: [keycloak]
+
+configs:
+  iris-merge:
+    content: |
+      [Actions]
+      ModifyUser:Name=_SYSTEM,ChangePassword=0,PasswordNeverExpires=1
+      ModifyUser:Name=SuperUser,ChangePassword=0,PasswordNeverExpires=1
+      ModifyUser:Name=Admin,ChangePassword=0,PasswordNeverExpires=1

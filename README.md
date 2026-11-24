@@ -24,7 +24,7 @@ The token's issuer (<code>iss</code>) must be identical for VS Code, which runs 
 <pre class="codeblock-container" idlang="0" lang="Shell" tabsize="4"><code class="language-bash">git clone https://github.com/Ari-Glikman/OAuth2-VSCode-Login
 cd OAuth2-VSCode-Login
 docker compose up -d</code></pre>
-<p>The IRIS Management Portal is at <a href="http://localhost:52773/csp/sys/UtilHome.csp" target="_blank">http://localhost:52773/csp/sys/UtilHome.csp</a> (<code>_SYSTEM</code> / <code>SYS</code>). On a fresh container, the first portal login asks you to change the <code>_SYSTEM</code> password; pick anything you like.</p>
+<p>The IRIS Management Portal is at <a href="http://localhost:52773/csp/sys/UtilHome.csp" target="_blank">http://localhost:52773/csp/sys/UtilHome.csp</a> (<code>_SYSTEM</code> / <code>SYS</code>). The compose file keeps the default passwords for this demo, so there's no password-change prompt. <code>SuperUser</code> and <code>Admin</code> also use <code>SYS</code>.</p>
 
 <h3>Step 1: Configure the Authorization Server (Keycloak)</h3>
 <p>Open the Keycloak admin console at <a href="http://keycloak:8080/admin/" target="_blank">http://keycloak:8080/admin/</a> and log in as <code>admin</code> / <code>admin</code>. You'll create a realm, a role, a user, and the client VS Code will use. The client settings are the part to reproduce in your own identity provider later.</p>
