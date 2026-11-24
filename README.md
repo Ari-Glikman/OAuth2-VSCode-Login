@@ -75,7 +75,16 @@ The portal won't run discovery without one, even though this demo's issuer is pl
 <p>Why only OAuth2? Keep it simple: when other methods are enabled alongside it, one of them can claim the request first. For example, a <code>ZAUTHENTICATE</code> routine whose <code>GetCredentials</code> always supplies credentials makes Delegated win, and the token is never looked at.</p>
 
 <h3>Step 4: Sign in from VS Code</h3>
-<p>Add the server to your VS Code <code>settings.json</code>. The new part is the <code>oauth2</code> block: the issuer as <code>authority</code>, and the Keycloak client ID.</p>
+<p>In the InterSystems view, add a server (<em>+</em> on the Servers list). Give it a name, <code>oauth-demo</code>, and the URL <code>http://localhost:52773/</code>. Server Manager then asks how to authenticate:</p>
+<ol>
+<li>For the authentication method, choose <strong>OAuth2</strong>.
+<p><img src="images/vscode-oauth2-authentication-method.png" alt="Server Manager: select the authentication method, OAuth2" width="560"></p></li>
+<li>For the OAuth2 authority URL, enter the issuer <code>http://keycloak:8080/realms/vscode</code>.
+<p><img src="images/vscode-oauth2-issuer.png" alt="Server Manager: OAuth2 authority URL (issuer)" width="560"></p></li>
+<li>For the client ID, enter <code>vscode-iris</code>.
+<p><img src="images/vscode-oauth2-client-id.png" alt="Server Manager: OAuth2 client ID" width="560"></p></li>
+</ol>
+<p>That's all VS Code needs. It stores the server in your user <code>settings.json</code> as an entry like the one below, so you can also write it by hand instead. The new part is the <code>oauth2</code> block.</p>
 <pre class="codeblock-container" idlang="3" lang="JSON" tabsize="4"><code class="language-json">{
   "intersystems.servers": {
     "oauth-demo": {
