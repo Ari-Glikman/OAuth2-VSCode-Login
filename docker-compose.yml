@@ -4,12 +4,15 @@ services:
     container_name: vscode-oauth-keycloak
     # The issuer must be identical for VS Code (on your machine) and for IRIS (in Docker),
     # so both use the name "keycloak". Add "127.0.0.1 keycloak" to your hosts file.
-    command: ["start-dev", "--hostname=http://keycloak:8080"]
+    # The realm (client, mappers, demo user) is imported from ./keycloak at startup.
+    command: ["start-dev", "--import-realm", "--hostname=http://keycloak:8080"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
     ports:
       - "8080:8080"
+    volumes:
+      - ./keycloak/realm-vscode.json:/opt/keycloak/data/import/realm-vscode.json:ro
 
   iris:
     image: containers.intersystems.com/intersystems/iris-community:latest-cd

@@ -1,7 +1,7 @@
 <h2><u><strong>Logging in to IRIS from VS Code with OAuth2</strong></u></h2>
 <p>As of IRIS 2025.2, OAuth2 is a native authentication type for web applications: a client presents an access token from your identity provider, and IRIS validates it and turns its claims into an IRIS user with roles. No custom login code is needed.</p>
 <p>This article applies that to a client you use every day: <strong>VS Code</strong>. Since version 3.14, the InterSystems Server Manager extension can sign in to IRIS with OAuth2. You log in once in the browser with your identity provider, and VS Code uses the resulting access token for every request it sends to IRIS. There is no IRIS password in your <code>settings.json</code>, and no IRIS password at all for the developer.</p>
-<p>The setup is small: a Keycloak realm with one client, one IRIS resource server, and one web application setting. No ObjectScript is required.</p>
+<p>The setup is small: Keycloak comes pre-configured, and on the IRIS side you create a server description, a resource server, and one web application setting. No ObjectScript is required.</p>
 
 <h3>How it fits together</h3>
 <ul>
@@ -26,45 +26,19 @@ cd OAuth2-VSCode-Login
 docker compose up -d</code></pre>
 <p>The IRIS Management Portal is at <a href="http://localhost:52773/csp/sys/UtilHome.csp" target="_blank">http://localhost:52773/csp/sys/UtilHome.csp</a> (<code>_SYSTEM</code> / <code>SYS</code>). The compose file keeps the default passwords for this demo, so there's no password-change prompt. <code>SuperUser</code> and <code>Admin</code> also use <code>SYS</code>.</p>
 
-<h3>Step 1: Configure the Authorization Server (Keycloak)</h3>
-<p>Open the Keycloak admin console at <a href="http://keycloak:8080/admin/" target="_blank">http://keycloak:8080/admin/</a> and log in as <code>admin</code> / <code>admin</code>. You'll create a realm, a role, a user, and the client VS Code will use. The client settings are the part to reproduce in your own identity provider later.</p>
-
-<h4>1a. Realm</h4>
-<p>Create a realm named <code>vscode</code>. Its issuer, <code>http://keycloak:8080/realms/vscode</code>, is the URL both IRIS and VS Code will use.</p>
-
-<h4>1b. Role and user</h4>
+<h3>Step 1: The Authorization Server (Keycloak)</h3>
+<p>Keycloak comes pre-configured: <code>docker compose up</code> imports the realm in <code>keycloak/realm-vscode.json</code>, so there is nothing to do here. Explaining Keycloak itself is out of scope, but it's worth knowing what that realm contains. These are the settings to reproduce in your own identity provider:</p>
 <ul>
-<li><em>Realm roles &gt; Create role</em>: name it <code>iris:%Developer</code>. The <code>iris:</code> prefix marks it as a role meant for IRIS; Step 3 explains how IRIS uses it.</li>
-<li><em>Users &gt; Create new user</em>: username <code>dev1</code>, with an email, first name and last name filled in and <em>Email verified</em> on. Otherwise Keycloak asks the user to complete their profile at the first login.</li>
-<li>On the user's <em>Credentials</em> tab, set the password <code>123</code> with <em>Temporary</em> off.</li>
-<li>On the user's <em>Role mapping</em> tab, <em>Assign role</em>: <code>iris:%Developer</code> (filter by realm roles).</li>
+<li><strong>Realm <code>vscode</code>.</strong> Its issuer, <code>http://keycloak:8080/realms/vscode</code>, is the URL both IRIS and VS Code use.</li>
+<li><strong>Client <code>vscode-iris</code>: public, with PKCE (S256).</strong> VS Code is a desktop application and can't keep a client secret, so Server Manager never sends one. If the client required authentication, the login would succeed in the browser and then fail with <em>Invalid client or Invalid client credentials</em>.</li>
+<li><strong>Valid redirect URI <code>vscode://intersystems-community.servermanager/oauth2-callback</code>.</strong> After you log in, Keycloak redirects your browser to this URI and the operating system hands it to VS Code. It never travels over the network, so it works wherever Keycloak runs.</li>
+<li><strong>An Audience mapper</strong> adding <code>http://localhost:52773/</code> to the token's <code>aud</code> claim. IRIS only accepts tokens addressed to it. Server Manager asks for an audience equal to the server's URL (<code>&lt;scheme&gt;://&lt;host&gt;:&lt;port&gt;/</code>), but Keycloak ignores that request parameter; without the mapper the token's audience is just <code>account</code> and IRIS rejects it. (In Keycloak it's the mapper type <em>Audience</em>, not the similarly named <em>Audience Resolve</em>.)</li>
+<li><strong>A User Realm Role mapper</strong> copying the user's realm roles into a top-level claim, <code>iris_roles</code>. Keycloak normally nests them inside <code>realm_access.roles</code>, which IRIS's built-in authenticator can't read.</li>
+<li><strong>User <code>dev1</code> / <code>123</code></strong>, holding the realm role <code>iris:%Developer</code>. Step 3 explains the <code>iris:</code> prefix.</li>
 </ul>
-<!-- screenshot: dev1 role mapping -->
-
-<h4>1c. The client</h4>
-<p><em>Clients &gt; Create client</em>:</p>
-<ul>
-<li><strong>General settings:</strong> client type <em>OpenID Connect</em>, Client ID <code>vscode-iris</code>.</li>
-<li><strong>Capability config:</strong> <em>Client authentication</em> <strong>off</strong>, <em>Standard flow</em> on, <em>Direct access grants</em> off, PKCE method <code>S256</code>.</li>
-<li><strong>Login settings:</strong> <em>Valid redirect URIs</em> <code>vscode://intersystems-community.servermanager/oauth2-callback</code>.</li>
-</ul>
-<!-- [CONFIRM] PKCE field location in your Keycloak version (Capability config "PKCE Method", or Advanced tab "Proof Key for Code Exchange Code Challenge Method") -->
-<!-- screenshot: Capability config -->
-<p>Why these settings:</p>
-<ul>
-<li><strong>Public client with PKCE.</strong> VS Code is a desktop application and can't keep a client secret, so Server Manager never sends one. If the client requires authentication, the login succeeds in the browser and then fails with <em>Invalid client or Invalid client credentials</em>.</li>
-<li><strong>The <code>vscode://</code> redirect URI.</strong> After you log in, Keycloak redirects your browser to this URI and the operating system hands it to VS Code. It never travels over the network, so it works wherever Keycloak runs.</li>
-</ul>
-
-<h4>1d. Two mappers: audience and roles</h4>
-<p>Open the client's <em>Client scopes</em> tab, click <code>vscode-iris-dedicated</code>, then <em>Configure a new mapper</em> (later: <em>Add mapper &gt; By configuration</em>):</p>
-<ol>
-<li><strong>Audience</strong>: name <code>iris-audience</code>, <em>Included Custom Audience</em> <code>http://localhost:52773/</code>, <em>Add to access token</em> on.<br>
-IRIS only accepts tokens addressed to it, by checking the token's <code>aud</code> claim. Server Manager asks for an audience equal to the server's URL (<code>&lt;scheme&gt;://&lt;host&gt;:&lt;port&gt;/</code>), but Keycloak ignores that request parameter. Without this mapper the token's audience is just <code>account</code> and IRIS rejects it. Pick the mapper type <strong>Audience</strong>; the similarly named <em>Audience Resolve</em> does something else.</li>
-<li><strong>User Realm Role</strong>: name <code>iris-roles</code>, <em>Token Claim Name</em> <code>iris_roles</code>, <em>Multivalued</em> on, <em>Add to access token</em> on.<br>
-Keycloak normally nests realm roles inside <code>realm_access.roles</code>. This mapper also puts them in a top-level claim, <code>iris_roles</code>, which IRIS's built-in authenticator can read.</li>
-</ol>
-<!-- screenshot: vscode-iris-dedicated mappers list -->
+<p>To look around, the admin console is at <a href="http://keycloak:8080/admin/" target="_blank">http://keycloak:8080/admin/</a> (<code>admin</code> / <code>admin</code>), realm <code>vscode</code>, client <code>vscode-iris</code>.</p>
+<p><img src="images/keycloak-client-capability.png" alt="Keycloak client vscode-iris: client authentication off, standard flow, PKCE method S256" width="600"></p>
+<p><img src="images/keycloak-client-mappers.png" alt="Dedicated mappers of vscode-iris: iris-audience (Audience) and iris-roles (User Realm Role)" width="760"></p>
 
 <h3>Step 2: Tell IRIS who the Authorization Server is</h3>
 <ol>
@@ -72,31 +46,32 @@ Keycloak normally nests realm roles inside <code>realm_access.roles</code>. This
 The portal won't run discovery without one, even though this demo's issuer is plain <code>http://</code>; it answers <em>SSL/TLS configuration must be specified for discovery request</em>. Over <code>http://</code> the configuration is never used. With an <code>https://</code> issuer, as in production, it's where you make IRIS trust your identity provider's certificate.</li>
 <li><strong>The server description.</strong> <em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Client</em>, <em>Create Server Description</em>: Issuer <code>http://keycloak:8080/realms/vscode</code>, SSL/TLS configuration <code>keycloak</code>, then <em>Discover and Save</em>. IRIS downloads the realm's metadata: its endpoints and the keys it signs tokens with.</li>
 </ol>
-<!-- screenshot: server description after discovery -->
+<p><img src="images/iris-ssl-config.png" alt="SSL/TLS configuration keycloak: type Client, defaults" width="640"></p>
+<p><img src="images/iris-server-description.png" alt="Server description after Discover and Save, with SSL/TLS configuration keycloak" width="560"></p>
 
 <h3>Step 3: Create the Resource Server</h3>
 <p><em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Resource Server</em>, <em>Create Resource Server</em>:</p>
 <ul>
 <li><strong>Name:</strong> <code>VSCode Resource Server</code></li>
 <li><strong>Server Definition:</strong> <code>http://keycloak:8080/realms/vscode</code></li>
-<li><strong>Audiences:</strong> <code>http://localhost:52773/</code> (the same value as the Keycloak mapper, including the trailing slash)</li>
-<li><strong>Authenticator:</strong> <code>%OAuth2.ResourceServer.SimpleAuthenticator</code>, with
+<li><strong>Audiences:</strong> click <em>Add</em>, enter <code>http://localhost:52773/</code> and click <em>OK</em>. It's the same value as the Keycloak mapper, including the trailing slash.</li>
+<li><strong>Access Token Validation:</strong> leave <em>JWT</em> checked (the default). IRIS validates the token's signature itself, with the keys it got during discovery.</li>
+<li><strong>Authenticator:</strong> Namespace <code>%SYS</code>, Implementation <code>%OAuth2.ResourceServer.SimpleAuthenticator</code>, and
   <ul>
-  <li>User claim: <code>preferred_username</code></li>
-  <li>Role claim: <code>iris_roles</code></li>
-  <li>Prefix: <code>iris:</code></li>
+  <li><em>Prefix</em>: <code>iris:</code></li>
+  <li><em>RoleClaim</em>: <code>iris_roles</code></li>
+  <li><em>UserClaim</em>: <code>preferred_username</code></li>
   </ul></li>
 </ul>
 <p>The authenticator decides which IRIS user and roles a token becomes. You can write your own by subclassing <code>%OAuth2.ResourceServer.Authenticator</code>, but the built-in one is enough here. The <strong>prefix</strong> does two jobs: it ignores every role that doesn't start with <code>iris:</code> (Keycloak adds its own, such as <code>offline_access</code>), and it strips the prefix from the ones that do. <code>iris:%Developer</code> in Keycloak becomes the IRIS role <code>%Developer</code>.</p>
-<!-- screenshot: resource server page with the authenticator settings -->
-<!-- [CONFIRM] exact portal labels for the SimpleAuthenticator fields -->
+<p><img src="images/iris-resource-server.png" alt="Resource server VSCode Resource Server with the SimpleAuthenticator settings" width="560"></p>
+<p>You don't tell IRIS which web applications use this resource server: the first one you save becomes the default for all of them (and for SQL connections). It only comes into play for an application once you enable OAuth2 on it, which is the next step.</p>
 
 <h3>Step 4: Enable OAuth2 on /api/atelier</h3>
 <p>First allow OAuth2 system-wide (once per instance): <em>System Administration &gt; Security &gt; System Security &gt; Authentication/Web Session Options</em>, check <em>Allow OAuth2 authentication</em>.</p>
-<!-- [CONFIRM] exact checkbox label -->
-<p>Then open <em>System Administration &gt; Security &gt; Applications &gt; Web Applications &gt; /api/atelier</em>. Under <em>Allowed Authentication Methods</em>, select <strong>OAuth2 only</strong>, and choose <code>VSCode Resource Server</code> as the resource server for this application.</p>
-<!-- [CONFIRM] where the portal associates the resource server with /api/atelier (per-application vs default) -->
-<!-- screenshot: /api/atelier authentication methods -->
+<p><img src="images/iris-auth-options.png" alt="Authentication/Web Session Options with Allow OAuth2 authentication checked" width="560"></p>
+<p>Then open <em>System Administration &gt; Security &gt; Applications &gt; Web Applications &gt; /api/atelier</em>. Under <em>Allowed Authentication Methods</em>, check <strong>OAuth2</strong> and clear the others, then save.</p>
+<p><img src="images/iris-webapp-atelier.png" alt="Web application /api/atelier with OAuth2 as the only allowed authentication method" width="720"></p>
 <p>Why only OAuth2? Keep it simple: when other methods are enabled alongside it, one of them can claim the request first. For example, a <code>ZAUTHENTICATE</code> routine whose <code>GetCredentials</code> always supplies credentials makes Delegated win, and the token is never looked at.</p>
 
 <h3>Step 5: Sign in from VS Code</h3>
@@ -118,9 +93,10 @@ The portal won't run discovery without one, even though this demo's issuer is pl
   }
 }</code></pre>
 <p>In the InterSystems view, expand <em>oauth-demo</em>. VS Code opens your browser at the Keycloak login page; sign in as <code>dev1</code> / <code>123</code>, allow the browser to open VS Code, and the server's namespaces appear.</p>
-<!-- screenshot: Keycloak login page opened by VS Code -->
+<p><img src="images/keycloak-login.png" alt="Keycloak login page opened by VS Code" width="500"></p>
 <!-- screenshot: Server Manager tree showing namespaces -->
-<p>In the Management Portal, under <em>Security &gt; Users</em>, you will now find the user <code>dev1</code> with the role <code>%Developer</code>. IRIS created it from the token's claims on the first request.</p>
+<p>In the Management Portal, under <em>Security &gt; Users</em>, you will now find the user <code>dev1</code> with the role <code>%Developer</code>. IRIS created it from the token's claims on the first request; its type is <em>OAuth2 user</em>.</p>
+<p><img src="images/iris-users.png" alt="IRIS users list showing dev1 as an OAuth2 user" width="620"></p>
 
 <h3>Troubleshooting</h3>
 <ul>
@@ -130,6 +106,8 @@ The portal won't run discovery without one, even though this demo's issuer is pl
   <ul>
   <li><em>Delegated login failed</em>: another method on <code>/api/atelier</code> claimed the request. Make OAuth2 the only one.</li>
   <li><em>ERROR #936: User ... is not an OAuth2 user</em>: an IRIS user with that name already exists and was created by a different login method (for example, Delegated). Use another username or a prefix, or remove the old user.</li>
+  <li>An audience or issuer mismatch on an instance that already had a resource server: the first one saved is the default for every web application, so <code>/api/atelier</code> may be using the old one. Point <code>/api/atelier</code> at the new one from an IRIS terminal in <code>%SYS</code>:<br>
+  <code>do ##class(OAuth2.ResourceServer.Mapping).Create("%Service_WebGateway","/api/atelier",##class(OAuth2.ResourceServer).%OpenId("VSCode Resource Server"))</code></li>
   <li>A token audience or issuer error: compare the token's <code>aud</code> and <code>iss</code> (paste it into a JWT decoder) with the resource server's Audiences and the server description's issuer. They must match exactly, trailing slash included.</li>
   </ul></li>
 <li><strong>VS Code doesn't prompt you and still gets 401.</strong> It reuses its cached session. Sign out using the Accounts icon (bottom left) &gt; InterSystems Server Credentials, then connect again.</li>
