@@ -82,6 +82,7 @@ def call(url: str, token: str) -> int:
         with urllib.request.urlopen(request) as response:
             return response.status
     except urllib.error.HTTPError as e:
+        e.close()
         return e.code
 
 
