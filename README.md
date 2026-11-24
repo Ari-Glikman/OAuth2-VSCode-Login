@@ -1,6 +1,6 @@
 <h2><u><strong>Logging in to IRIS from VS Code with OAuth2</strong></u></h2>
-<p>In the <a href="https://openexchange.intersystems.com/package/OAuth2-Native-Authentication-for-Web-Applications" target="_blank">previous article</a> we protected a small REST API with OAuth2, IRIS's native authentication type for web applications (IRIS 2025.2+). Postman played the client: it fetched a token from Keycloak, and IRIS turned that token into a user with roles.</p>
-<p>This time the client is something you use every day: <strong>VS Code</strong>. Since version 3.14, the InterSystems Server Manager extension can sign in to IRIS with OAuth2. You log in once in the browser with your identity provider, and VS Code uses the resulting access token for every request it sends to IRIS. There is no IRIS password in your <code>settings.json</code>, and no IRIS password at all for the developer.</p>
+<p>As of IRIS 2025.2, OAuth2 is a native authentication type for web applications: a client presents an access token from your identity provider, and IRIS validates it and turns its claims into an IRIS user with roles. No custom login code is needed.</p>
+<p>This article applies that to a client you use every day: <strong>VS Code</strong>. Since version 3.14, the InterSystems Server Manager extension can sign in to IRIS with OAuth2. You log in once in the browser with your identity provider, and VS Code uses the resulting access token for every request it sends to IRIS. There is no IRIS password in your <code>settings.json</code>, and no IRIS password at all for the developer.</p>
 <p>The setup is small: one Keycloak client, one IRIS resource server, and one web application setting. No ObjectScript is required.</p>
 
 <h3>How it fits together</h3>
@@ -9,16 +9,16 @@
 <li><strong>Authorization Server:</strong> Keycloak. It authenticates the developer and issues the access token.</li>
 <li><strong>Resource Server:</strong> IRIS, specifically the <code>/api/atelier</code> web application, which is the REST API VS Code uses for everything (browsing namespaces, opening and saving classes, compiling).</li>
 </ul>
-<p>Every request from VS Code to <code>/api/atelier</code> carries <code>Authorization: Bearer &lt;token&gt;</code>. IRIS validates the token and maps its claims to an IRIS username and roles, exactly as in part 1.</p>
+<p>Every request from VS Code to <code>/api/atelier</code> carries <code>Authorization: Bearer &lt;token&gt;</code>. IRIS validates the token and maps its claims to an IRIS username and roles.</p>
 
 <h3>Step 0: Prerequisites</h3>
 <p><strong>Note:</strong> This demo uses HTTP to keep the setup simple. In production, use HTTPS everywhere; an access token is as good as a password while it is valid.</p>
 <ul>
 <li>Docker, VS Code, and the <a href="https://marketplace.visualstudio.com/items?itemName=intersystems-community.servermanager" target="_blank">InterSystems Server Manager</a> extension, version <strong>3.14 or later</strong>.</li>
-<li>The hosts entry from part 1. Add this line to <em>C:\Windows\System32\drivers\etc\hosts</em> (Windows) or <em>/etc/hosts</em> (Linux/Mac):
+<li>A hosts entry for Keycloak. Add this line to <em>C:\Windows\System32\drivers\etc\hosts</em> (Windows) or <em>/etc/hosts</em> (Linux/Mac):
 <blockquote><p>127.0.0.1 keycloak</p></blockquote>
 The token's issuer (<code>iss</code>) must be identical for VS Code, which runs on your machine, and for IRIS, which runs in a container. Using the name <code>keycloak</code> in both places guarantees that.</li>
-<li>If the part 1 demo is still running, stop it first; both use ports 8080 and 52773.</li>
+<li>Ports 8080 (Keycloak) and 52773 (IRIS) free on your machine. Stop any other container or local service using them.</li>
 </ul>
 <p>Clone the repository and start the two containers:</p>
 <pre class="codeblock-container" idlang="0" lang="Shell" tabsize="4"><code class="language-bash">git clone https://github.com/Ari-Glikman/OAuth2-VSCode-Login
@@ -39,7 +39,7 @@ docker compose up -d</code></pre>
 <!-- screenshot: Keycloak client scopes > vscode-iris-dedicated > mappers list -->
 
 <h3>Step 2: Tell IRIS who the Authorization Server is</h3>
-<p>As in part 1: <em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Client</em>, <em>Create Server Description</em>, Issuer <code>http://keycloak:8080/realms/vscode</code>, then <em>Discover and Save</em>.</p>
+<p><em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Client</em>, <em>Create Server Description</em>, Issuer <code>http://keycloak:8080/realms/vscode</code>, then <em>Discover and Save</em>. IRIS downloads the realm's metadata: its endpoints and the keys it signs tokens with.</p>
 <!-- screenshot: server description after discovery -->
 
 <h3>Step 3: Create the Resource Server</h3>
@@ -55,13 +55,13 @@ docker compose up -d</code></pre>
   <li>Prefix: <code>iris:</code></li>
   </ul></li>
 </ul>
-<p>In part 1 we wrote a small authenticator class. Here the built-in one is enough. The <strong>prefix</strong> does two jobs: it ignores every role that doesn't start with <code>iris:</code> (Keycloak adds its own, such as <code>offline_access</code>), and it strips the prefix from the ones that do. <code>iris:%Developer</code> in Keycloak becomes the IRIS role <code>%Developer</code>.</p>
+<p>The authenticator decides which IRIS user and roles a token becomes. You can write your own by subclassing <code>%OAuth2.ResourceServer.Authenticator</code>, but the built-in one is enough here. The <strong>prefix</strong> does two jobs: it ignores every role that doesn't start with <code>iris:</code> (Keycloak adds its own, such as <code>offline_access</code>), and it strips the prefix from the ones that do. <code>iris:%Developer</code> in Keycloak becomes the IRIS role <code>%Developer</code>.</p>
 <!-- screenshot: resource server page with the authenticator settings -->
 <!-- [CONFIRM] exact portal labels for the SimpleAuthenticator fields -->
 
 <h3>Step 4: Enable OAuth2 on /api/atelier</h3>
-<p>If you haven't done so for part 1, first allow OAuth2 system-wide: <em>System Administration &gt; Security &gt; System Security &gt; Authentication/Web Session Options</em>, check <em>Allow OAuth2 authentication</em>.</p>
-<!-- [CONFIRM] exact checkbox label (see part 1's screenshot) -->
+<p>First allow OAuth2 system-wide (once per instance): <em>System Administration &gt; Security &gt; System Security &gt; Authentication/Web Session Options</em>, check <em>Allow OAuth2 authentication</em>.</p>
+<!-- [CONFIRM] exact checkbox label -->
 <p>Then open <em>System Administration &gt; Security &gt; Applications &gt; Web Applications &gt; /api/atelier</em>. Under <em>Allowed Authentication Methods</em>, select <strong>OAuth2 only</strong>, and choose <code>VSCode Resource Server</code> as the resource server for this application.</p>
 <!-- [CONFIRM] where the portal associates the resource server with /api/atelier (per-application vs default) -->
 <!-- screenshot: /api/atelier authentication methods -->
@@ -113,4 +113,5 @@ Get-Content test/configure-iris.script | docker exec -i vscode-oauth-iris iris s
 <p>The repository also contains <code>test/get_token.py</code>, which performs the same PKCE login as VS Code and calls IRIS with the token. Run <code>python test/get_token.py dev1 123 --call http://localhost:52773/api/atelier/</code> to check the IRIS side without VS Code.</p>
 
 <h3>Wrapping up</h3>
-<p>The building blocks from part 1, a server description, a resource server, and OAuth2 on a web application, apply unchanged to the API VS Code talks to. The result: developers sign in to IRIS with the same identity provider they use for everything else, roles come from that identity provider, and no IRIS passwords live on developer machines.</p>
+<p>Three IRIS building blocks, a server description, a resource server, and OAuth2 on a web application, are all it takes to protect the API VS Code talks to. The result: developers sign in to IRIS with the same identity provider they use for everything else, roles come from that identity provider, and no IRIS passwords live on developer machines.</p>
+<p><strong>Related:</strong> to protect your own REST APIs the same way, with roles derived from OAuth2 scopes and a custom authenticator class, see <a href="https://openexchange.intersystems.com/package/OAuth2-Native-Authentication-for-Web-Applications" target="_blank">OAuth2 Native Authentication for Web Applications</a>.</p>

@@ -50,6 +50,12 @@ class ArticleMatchesStackTest(unittest.TestCase):
         self.assertEqual(server["oauth2"], {"authority": "http://keycloak:8080/realms/vscode", "clientId": "vscode-iris"})
         self.assertEqual(server["webServer"], {"scheme": "http", "host": "localhost", "port": 52773})
 
+    def test_article_stands_alone(self):
+        # The earlier article is linked as related reading, never assumed (read, installed, or running).
+        for phrase in ("part 1", "previous article", "prequel", "sequel"):
+            self.assertNotIn(phrase, self.article.lower())
+            self.assertNotIn(phrase, read("docs", "open-exchange.md").lower())
+
     def test_missing_hosts_entry_symptom_is_vscode_discovery_error(self):
         # Server Manager fetches the discovery document itself before opening the browser.
         self.assertIn("OAuth2: Failed to discover endpoints", self.article)
