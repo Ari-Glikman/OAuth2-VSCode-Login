@@ -43,11 +43,11 @@ docker compose up -d</code></pre>
 <h3>Step 1: Tell IRIS who the Authorization Server is</h3>
 <ol>
 <li><strong>An SSL/TLS configuration.</strong> <em>System Administration &gt; Security &gt; SSL/TLS Configurations &gt; Create New Configuration</em>: name it <code>keycloak</code>, type <em>Client</em>, keep the defaults, and save.<br>
-The portal won't run discovery without one, even though this demo's issuer is plain <code>http://</code>; it answers <em>SSL/TLS configuration must be specified for discovery request</em>. Over <code>http://</code> the configuration is never used. With an <code>https://</code> issuer, as in production, it's where you make IRIS trust your identity provider's certificate.</li>
-<li><strong>The server description.</strong> <em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Client</em>, <em>Create Server Description</em>: Issuer <code>http://keycloak:8080/realms/vscode</code>, SSL/TLS configuration <code>keycloak</code>, then <em>Discover and Save</em>. IRIS downloads the realm's metadata: its endpoints and the keys it signs tokens with.</li>
+The portal won't run discovery without one, even though this demo's issuer is plain <code>http://</code>; it answers <em>SSL/TLS configuration must be specified for discovery request</em>. Over <code>http://</code> the configuration is never used. With an <code>https://</code> issuer, as in production, it's where you make IRIS trust your identity provider's certificate.
+<p><img src="images/iris-ssl-config.png" alt="SSL/TLS configuration keycloak: type Client, defaults" width="640"></p></li>
+<li><strong>The server description.</strong> <em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Client</em>, <em>Create Server Description</em>: Issuer <code>http://keycloak:8080/realms/vscode</code>, SSL/TLS configuration <code>keycloak</code>, then <em>Discover and Save</em>. IRIS downloads the realm's metadata: its endpoints and the keys it signs tokens with.
+<p><img src="images/iris-server-description.png" alt="Server description after Discover and Save, with SSL/TLS configuration keycloak" width="560"></p></li>
 </ol>
-<p><img src="images/iris-ssl-config.png" alt="SSL/TLS configuration keycloak: type Client, defaults" width="640"></p>
-<p><img src="images/iris-server-description.png" alt="Server description after Discover and Save, with SSL/TLS configuration keycloak" width="560"></p>
 
 <h3>Step 2: Create the Resource Server</h3>
 <p><em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Resource Server</em>, <em>Create Resource Server</em>:</p>
