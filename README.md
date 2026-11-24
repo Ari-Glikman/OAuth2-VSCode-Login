@@ -68,6 +68,7 @@ Keycloak normally nests realm roles inside <code>realm_access.roles</code>. This
 
 <h3>Step 2: Tell IRIS who the Authorization Server is</h3>
 <p><em>System Administration &gt; Security &gt; OAuth 2.0 &gt; Client</em>, <em>Create Server Description</em>, Issuer <code>http://keycloak:8080/realms/vscode</code>, then <em>Discover and Save</em>. IRIS downloads the realm's metadata: its endpoints and the keys it signs tokens with.</p>
+<p>Leave <em>SSL/TLS configuration</em> empty. The portal only requires it when discovery uses HTTPS, and this demo's issuer is plain <code>http://</code>. With an <code>https://</code> issuer, as in production, first create a client SSL/TLS configuration (<em>System Administration &gt; Security &gt; SSL/TLS Configurations</em>) that trusts your identity provider's certificate, and select it here.</p>
 <!-- screenshot: server description after discovery -->
 
 <h3>Step 3: Create the Resource Server</h3>
