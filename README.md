@@ -1,6 +1,6 @@
 <h2><u><strong>Logging in to IRIS from VS Code with OAuth2</strong></u></h2>
 <p>As of IRIS 2025.2, OAuth2 is a native authentication type for web applications: a client presents an access token from your identity provider, and IRIS validates it and turns its claims into an IRIS user with roles. No custom login code is needed.</p>
-<p>This article applies that to a client you use every day: <strong>VS Code</strong>. Since version 3.14, the InterSystems Server Manager extension can sign in to IRIS with OAuth2. You log in once in the browser with your identity provider, and VS Code uses the resulting access token for every request it sends to IRIS. There is no IRIS password in your <code>settings.json</code>, and no IRIS password at all for the developer.</p>
+<p>This article applies that to a client you use every day: <strong>VS Code</strong>. Since version 3.14 (released August 11, 2026), the InterSystems Server Manager extension can sign in to IRIS with OAuth2. You log in once in the browser with your identity provider, and VS Code uses the resulting access token for every request it sends to IRIS. There is no IRIS password in your <code>settings.json</code>, and no IRIS password at all for the developer.</p>
 <p>The setup is small: Keycloak comes pre-configured, and on the IRIS side you create a server description, a resource server, and one web application setting. No ObjectScript is required.</p>
 
 <h3>How it fits together</h3>
