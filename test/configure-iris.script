@@ -1,0 +1,27 @@
+; Applies the article's IRIS steps in one go (idempotent). Use it to skip the portal walkthrough:
+;   docker exec -i vscode-oauth-iris iris session IRIS -U %SYS < test/configure-iris.script
+;   PowerShell: Get-Content test/configure-iris.script | docker exec -i vscode-oauth-iris iris session IRIS -U %SYS
+zn "%SYS"
+do ##class(Security.Users).UnExpireUserPasswords("*")
+; Step 2: server description (discovery) for the Keycloak realm
+set issuer="http://keycloak:8080/realms/vscode"
+set sc=##class(%SYS.OAuth2.Registration).Discover(issuer,"",.server)
+write "server description: ",$select($system.Status.IsError(sc):$system.Status.GetErrorText(sc),1:"OK"),!
+if $system.Status.IsError(sc) halt
+; Step 3: resource server with the built-in SimpleAuthenticator
+set rsName="VSCode Resource Server"
+set rs=##class(OAuth2.ResourceServer).%OpenId(rsName)
+if '$isobject(rs) set rs=##class(OAuth2.ResourceServer).%New(),rs.Name=rsName
+set rs.ServerDefinition=server,rs.AccessTokenIsJWT=1,rs.Enabled=1,rs.IntrospectionAuthMethod="none",rs.Audiences=$listbuild("http://localhost:52773/")
+set rs.Authenticator=##class(%OAuth2.ResourceServer.SimpleAuthenticator).%New({"UserClaim":"preferred_username","RoleClaim":"iris_roles","Prefix":"iris:"})
+set sc=rs.%Save()
+write "resource server: ",$select($system.Status.IsError(sc):$system.Status.GetErrorText(sc),1:"OK"),!
+; Use this resource server for /api/atelier (what the portal does when you pick it on the web application)
+if ##class(OAuth2.ResourceServer.Mapping).Exists("%Service_WebGateway","/api/atelier") { set sc=##class(OAuth2.ResourceServer.Mapping).Modify("%Service_WebGateway","/api/atelier",rs) } else { set sc=##class(OAuth2.ResourceServer.Mapping).Create("%Service_WebGateway","/api/atelier",rs) }
+write "mapping /api/atelier: ",$select($system.Status.IsError(sc):$system.Status.GetErrorText(sc),1:"OK"),!
+; Step 4: allow OAuth2 system-wide, then make it the only method on /api/atelier
+set sc=##class(Security.System).Get("SYSTEM",.sys) kill new set new("AutheEnabled")=$zboolean(+sys("AutheEnabled"),67108864,7) set sc=##class(Security.System).Modify("SYSTEM",.new)
+write "system OAuth2: ",$select($system.Status.IsError(sc):$system.Status.GetErrorText(sc),1:"OK"),!
+kill new set new("AutheEnabled")=67108864 set sc=##class(Security.Applications).Modify("/api/atelier",.new)
+write "/api/atelier OAuth2 only: ",$select($system.Status.IsError(sc):$system.Status.GetErrorText(sc),1:"OK"),!
+halt
